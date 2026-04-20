@@ -78,7 +78,7 @@ export default function ChatPage() {
 
         {chatMutation.isPending && (
           <div className="text-gray-500 flex items-center gap-2 italic animate-pulse">
-            AI is analyzing <Spinner />
+            AI is typing <Spinner />
           </div>
         )}
       </div>
