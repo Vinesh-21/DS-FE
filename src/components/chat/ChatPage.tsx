@@ -12,43 +12,26 @@ import { Spinner } from "@/components/ui/Spinner";
 
 import MermaidRenderer from "./MermaidRenderer";
 import ExpandView from "@/components/ui/ExpandView";
-
 import { LoadChartFromData } from "./LoadChartFromData";
 import { MeterChartFromData } from "./MeterChartFromData";
 
-import { Sparkles } from "lucide-react";
+import { Sparkles, BookOpen } from "lucide-react";
 
-/* ================= TYPES ================= */
+
+type ContentType = "TEXT" | "JSONFORLOAD" | "JSONFORMETER" | "MERMAID" | "USER_GUIDE";
+
+interface ChatBotResponse {
+  contentType: ContentType;
+  content?: string;
+  jsonContentMeter?: any[];
+  jsonContentLoad?: any[];
+  steps?: { text: string; referenceImage?: string }[];
+}
 
 type Message = {
   role: "user" | "ai";
-  content: any;
+  content: string | ChatBotResponse; 
 };
-
-/* ================= HELPERS ================= */
-
-function tryParseJSON(content: any) {
-  console.log(content)
-  console.log(typeof(content))
-  if (typeof content !== "string") return content;
-
-  try {
-    return JSON.parse(content);
-  } catch {
-    return null;
-  }
-}
-
-function detectDataType(data: any) {
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  if ("power" in data[0]) return "load";
-  if ("reading" in data[0]) return "meter";
-
-  return null;
-}
-
-
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -56,163 +39,141 @@ export default function ChatPage() {
 
   const chatMutation = useMutation({
     mutationFn: sendChat,
-    onSuccess: (data) => {
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: data },
-      ]);
+    onSuccess: (data: ChatBotResponse) => {
+      setMessages((prev) => [...prev, { role: "ai", content: data }]);
     },
   });
 
   function handleSend() {
-    if (!input.trim()) return;
+    if (!input.trim() || chatMutation.isPending) return;
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: input },
-    ]);
-
-    chatMutation.mutate({
-      prompt: input,
-      conversationId: "user13",
-    });
-
+    setMessages((prev) => [...prev, { role: "user", content: input }]);
+    chatMutation.mutate({ prompt: input, conversationId: "user13" });
     setInput("");
   }
 
   return (
-    <div className="h-screen flex flex-col p-4">
+    <div className="h-screen flex flex-col bg-gray-50 p-4">
       
-      <div className="flex-1 overflow-y-scroll space-y-4 pb-28">
+      <div className="flex-1 overflow-y-auto space-y-6 pb-28">
         {messages.map((msg, idx) => {
-          const parsed = tryParseJSON(msg.content);
-          const type = detectDataType(parsed);
+          const isUser = msg.role === "user";
 
           return (
-            <div
-              key={idx}
-              className={`flex ${
-                msg.role === "user"
-                  ? "justify-end"
-                  : "justify-start"
-              }`}
-            >
-              
-              {msg.role === "user" && (
-                <div className="bg-blue-500 text-white p-3 rounded-2xl max-w-[70%] shadow-sm">
-                  {msg.content}
+            <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+              {isUser ? (
+                /* USER MESSAGE */
+                <div className="bg-blue-600 text-white p-3 rounded-2xl max-w-[70%] shadow-md">
+                  {msg.content as string}
                 </div>
-              )}
-
-              
-              {msg.role === "ai" && (
-                <div className="w-full flex flex-col items-start">
-                  
-                  {type === "load" && (
-                    <div className="w-full flex justify-center my-4">
-                      <div className="w-full max-w-[1100px]">
-                        <ExpandView>
-                          <LoadChartFromData data={parsed} />
-                        </ExpandView>
-                      </div>
-                    </div>
-                  )}
-
-              
-                  {type === "meter" && (
-                    <div className="w-full flex justify-center my-4">
-                      <div className="w-full max-w-[1100px]">
-                        <ExpandView>
-                          <MeterChartFromData data={parsed} />
-                        </ExpandView>
-                      </div>
-                    </div>
-                  )}
-
-                  {!type && (
-                    <div className="bg-gray-200 text-black p-3 rounded-2xl shadow-sm max-w-[600px] w-full">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeHighlight]}
-                        components={{
-                          code({ className, children }) {
-                            const text = String(children).trim();
-
-                            if (
-                              className?.includes("language-mermaid") ||
-                              text.startsWith("graph")
-                            ) {
-                              return (
-                                <div className="w-full flex justify-center my-4">
-                                  <div className="w-full max-w-[1000px] min-h-[200px]">
-                                    <ExpandView>
-                                      <MermaidRenderer chart={text} />
-                                    </ExpandView>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <pre className="bg-black text-white p-2 rounded overflow-x-auto">
-                                <code>{text}</code>
-                              </pre>
-                            );
-                          },
-                        }}
-                      >
-                        {String(msg.content)}
-                      </ReactMarkdown>
-                    </div>
-                  )}
+              ) : (
+                /* AI RESPONSE OBJECT */
+                <div className="w-full flex flex-col items-start gap-3">
+                  {renderAIContent(msg.content as ChatBotResponse)}
                 </div>
               )}
             </div>
           );
         })}
 
-        {/* ================= LOADING ================= */}
         {chatMutation.isPending && (
-          <div className="text-gray-500 flex items-center gap-2">
-            AI is typing <Spinner />
+          <div className="text-gray-500 flex items-center gap-2 italic animate-pulse">
+            AI is analyzing <Spinner />
           </div>
         )}
       </div>
 
-      {/* ================= INPUT ================= */}
-      <div className="flex gap-2 pt-2 bg-white sticky bottom-0">
+      {/* Input Bar */}
+      <div className="flex gap-2 pt-4 bg-white sticky bottom-0 border-t">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={chatMutation.isPending}
-          className={
-            chatMutation.isPending
-              ? "border-4 shadow-blue-400 border-blue-300 animate-pulse"
-              : ""
-          }
-          placeholder="Ask something..."
-          onKeyDown={(e) =>
-            e.key === "Enter" && handleSend()
-          }
+          placeholder="e.g., 'Show site hierarchy' or 'Get meter readings'"
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          className="focus-visible:ring-blue-500"
         />
-
-        <Button
-          onClick={handleSend}
-          disabled={chatMutation.isPending}
-          className="group flex items-center gap-2"
-        >
-          {chatMutation.isPending ? (
-            <>
-              Generating <Spinner />
-            </>
-          ) : (
-            <>
-              Send
-              <Sparkles className="transition-all duration-300 group-hover:rotate-12 group-hover:scale-125 group-hover:text-yellow-400" />
-            </>
-          )}
+        <Button onClick={handleSend} disabled={chatMutation.isPending} className="px-6">
+          {chatMutation.isPending ? <Spinner /> : <Sparkles className="w-4 h-4 mr-2" />}
+          Send
         </Button>
       </div>
     </div>
   );
+}
+
+/* ================= RENDER LOGIC ================= */
+
+function renderAIContent(response: ChatBotResponse) {
+  const { contentType, content, jsonContentMeter, jsonContentLoad, steps } = response;
+
+  switch (contentType) {
+    case "TEXT":
+      return (
+        <div className="bg-white border text-gray-800 p-4 rounded-2xl shadow-sm max-w-[800px] prose prose-blue">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+            {content || ""}
+          </ReactMarkdown>
+        </div>
+      );
+
+    case "MERMAID":
+      return (
+        <div className="w-full max-w-[1100px] bg-white p-4 rounded-xl border shadow-sm">
+          <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest">Site Hierarchy</p>
+          <ExpandView>
+            <MermaidRenderer chart={content || ""} />
+          </ExpandView>
+        </div>
+      );
+
+    case "JSONFORLOAD":
+      return (
+        <div className="w-full max-w-[1100px]">
+          <ExpandView>
+            <LoadChartFromData data={jsonContentLoad} />
+          </ExpandView>
+        </div>
+      );
+
+    case "JSONFORMETER":
+      return (
+        <div className="w-full max-w-[1100px]">
+          <ExpandView>
+            <MeterChartFromData data={jsonContentMeter} />
+          </ExpandView>
+        </div>
+      );
+
+    case "USER_GUIDE":
+      return (
+        <div className="bg-white border rounded-2xl shadow-sm max-w-[700px] overflow-hidden">
+          <div className="bg-blue-50 p-3 border-b flex items-center gap-2 text-blue-700 font-semibold">
+            <BookOpen className="w-4 h-4" /> User Guide
+          </div>
+          <div className="p-4 space-y-6">
+            {steps?.map((step, i) => (
+              <div key={i} className="flex gap-4">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">
+                  {i + 1}
+                </span>
+                <div className="space-y-3">
+                  <p className="text-gray-700">{step.text}</p>
+                  {step.referenceImage && (
+                    <img 
+                      src={step.referenceImage} 
+                      alt={`Step ${i+1}`} 
+                      className="rounded-lg border shadow-sm max-w-full h-auto"
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+    default:
+      return <div className="text-red-500 italic">Unknown content format</div>;
+  }
 }
