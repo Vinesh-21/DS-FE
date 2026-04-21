@@ -62,12 +62,12 @@ export default function ChatPage() {
           return (
             <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
               {isUser ? (
-                /* USER MESSAGE */
+                
                 <div className="bg-blue-600 text-white p-3 rounded-2xl max-w-[70%] shadow-md">
                   {msg.content as string}
                 </div>
               ) : (
-                /* AI RESPONSE OBJECT */
+                
                 <div className="w-full flex flex-col items-start gap-3">
                   {renderAIContent(msg.content as ChatBotResponse)}
                 </div>
@@ -83,7 +83,7 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Input Bar */}
+      
       <div className="flex gap-2 pt-4 bg-white sticky bottom-0 border-t">
         <Input
           value={input}
@@ -102,7 +102,7 @@ export default function ChatPage() {
   );
 }
 
-/* ================= RENDER LOGIC ================= */
+
 
 function renderAIContent(response: ChatBotResponse) {
   const { contentType, content, jsonContentMeter, jsonContentLoad, steps } = response;
