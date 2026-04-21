@@ -159,13 +159,16 @@ function renderAIContent(response: ChatBotResponse) {
                 </span>
                 <div className="space-y-3">
                   <p className="text-gray-700">{step.text}</p>
+                  <ExpandView>
+                  
                   {step.referenceImage && (
                     <img 
-                      src={step.referenceImage} 
-                      alt={`Step ${i+1}`} 
-                      className="rounded-lg border shadow-sm max-w-full h-auto"
+                    src={step.referenceImage} 
+                    alt={`Step ${i+1}`} 
+                    className="rounded-lg border shadow-sm max-w-full h-auto"
                     />
                   )}
+                  </ExpandView>
                 </div>
               </div>
             ))}
